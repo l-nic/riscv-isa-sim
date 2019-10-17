@@ -1,3 +1,7 @@
+L-NIC Project Custom ISA Simulator
+
+Exactly the same for now. :)
+
 Spike RISC-V ISA Simulator
 ============================
 
