@@ -30,6 +30,7 @@ processor_t::processor_t(const char* isa, const char* varch, simif_t* sim,
   parse_varch_string(varch);
   register_base_instructions();
   mmu = new mmu_t(sim, this);
+  nic = new nic_t();
 
   disassembler = new disassembler_t(max_xlen);
   if (ext)

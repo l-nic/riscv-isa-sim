@@ -1,2 +1,2 @@
 require_rv64;
-WRITE_RD(sext_xlen(RS1 + RS2));
+NIC.store_uint64(RS1);

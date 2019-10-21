@@ -1,2 +1,4 @@
 require_rv64;
-WRITE_RD(sext_xlen(RS1 + RS2));
+// TODO: Signed vs. unsigned
+// TODO: Dealing with 32-bit numbers
+WRITE_RD(NIC.load_uint64());

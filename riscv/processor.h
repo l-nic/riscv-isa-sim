@@ -11,6 +11,7 @@
 #include <map>
 #include <cassert>
 #include "debug_rom_defines.h"
+#include "nic.h"
 
 class processor_t;
 class mmu_t;
@@ -306,6 +307,7 @@ public:
   reg_t get_csr(int which);
   mmu_t* get_mmu() { return mmu; }
   state_t* get_state() { return &state; }
+  nic_t* get_nic() { return nic; }
   unsigned get_xlen() { return xlen; }
   unsigned get_max_xlen() { return max_xlen; }
   std::string get_isa_string() { return isa_string; }
@@ -433,6 +435,7 @@ private:
   extension_t* ext;
   disassembler_t* disassembler;
   state_t state;
+  nic_t* nic;
   uint32_t id;
   unsigned max_xlen;
   unsigned xlen;

@@ -150,6 +150,7 @@ private:
 // helpful macros, etc
 #define MMU (*p->get_mmu())
 #define STATE (*p->get_state())
+#define NIC (*p->get_nic())
 #define P (*p)
 #define FLEN (p->get_flen())
 #define READ_REG(reg) STATE.XPR[reg]
