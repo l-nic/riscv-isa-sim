@@ -14,6 +14,8 @@
 #include <fesvr/option_parser.h>
 using namespace std;
 
+const char * nic_config_data = nullptr;
+
 int main(int argc, char** argv)
 {
   string s;

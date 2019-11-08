@@ -12,7 +12,10 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <iostream>
 #include "../VERSION"
+
+const char *nic_config_data;
 
 static void help(int exit_code = 1)
 {
@@ -236,6 +239,7 @@ int main(int argc, char** argv)
   parser.option(0, "dm-no-halt-groups", 0,
       [&](const char* s){dm_config.support_haltgroups = false;});
   parser.option(0, "log-commits", 0, [&](const char* s){log_commits = true;});
+  parser.option(0, "nic-config-data", 1, [&](const char* s) {nic_config_data = s;});
 
   auto argv1 = parser.parse(argv);
   std::vector<std::string> htif_args(argv1, (const char*const*)argv + argc);

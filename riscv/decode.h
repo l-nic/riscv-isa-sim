@@ -156,7 +156,7 @@ private:
 #define P (*p)
 #define FLEN (p->get_flen())
 #define READ_REG(reg) ({ \
-    reg == 31 ? NIC.load_uint64() : STATE.XPR[reg]; \
+    (reg == 31 && NIC.get_enable()) ? NIC.load_uint64() : STATE.XPR[reg]; \
   })
 #define READ_FREG(reg) STATE.FPR[reg]
 #define RD READ_REG(insn.rd())
@@ -167,10 +167,14 @@ private:
 
 #ifndef RISCV_ENABLE_COMMITLOG
 # define WRITE_REG(reg, value) ({ \
-    if (reg == 30) { \
+    if (NIC.get_enable()) { \
+      if (reg == 30) { \
         NIC.store_uint64(value); \
-    } else if (reg != 31) { \
+      } else if (reg != 31) { \
         STATE.XPR.write(reg, value); \
+      } \
+    } else { \
+      STATE.XPR.write(reg, value); \
     } \
   })
 # define WRITE_FREG(reg, value) DO_WRITE_FREG(reg, freg(value))

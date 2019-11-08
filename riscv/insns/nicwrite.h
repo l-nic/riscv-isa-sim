@@ -1,2 +1,2 @@
 require_rv64;
-NIC.store_uint64(RS1);
+NIC.set_enable(RS1);

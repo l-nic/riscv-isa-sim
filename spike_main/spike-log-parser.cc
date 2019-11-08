@@ -14,6 +14,8 @@
 #include "disasm.h"
 #include "extension.h"
 
+const char* nic_config_data = nullptr;
+
 using namespace std;
 
 int main(int argc, char** argv)
