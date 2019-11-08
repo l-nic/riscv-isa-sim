@@ -102,7 +102,7 @@ reg_t nic_t::load_uint64() {
 	if (nic_config_data == nullptr) {
 		return 0;
 	}
-	cerr << "Lnic reading data" << endl;
+	cerr << "Lnic reading data at message index " << message_index << " with enable " << enable << endl;
 	if (current_message && message_index < message_ids[current_message->message_type_id]) {
 		// We have a current message and we're not done with it yet
 		uint64_t next_word = reinterpret_cast<uint64_t*>(current_message)[message_index];
