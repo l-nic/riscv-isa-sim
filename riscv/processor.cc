@@ -683,6 +683,9 @@ void processor_t::set_csr(int which, reg_t val)
     case CSR_VXRM:
       VU.vxrm = val;
       break;
+    case CSR_LREAD:
+      printf("Got lread csr read\n");
+      break;
   }
 }
 
@@ -877,6 +880,8 @@ reg_t processor_t::get_csr(int which)
       if (!supports_extension('V'))
         break;
       return VU.vtype;
+    case CSR_LREAD:
+      return 0;
   }
   throw trap_illegal_instruction(0);
 }
