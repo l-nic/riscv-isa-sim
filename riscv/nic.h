@@ -46,7 +46,7 @@ class nic_t {
 	void write_message_end();
  private:
  	// Reading and ip translation utility functions.
- 	void handle_lnic_datagram(uint8_t* datagram, ssize_t datagram_len, std::string src_ip_address);
+ 	void handle_lnic_datagram(uint8_t* datagram, size_t datagram_len, std::string src_ip_address);
  	void listen_for_datagrams();
  	int start_server_socket(uint16_t port);
  	std::vector<std::string> split(std::string input, std::string delim);
@@ -74,19 +74,20 @@ class nic_t {
  		uint64_t word;
  		bool is_last_word;
  		message_data_t* per_message_data;
- 	}
+ 	};
 
  	// Used to track metadata for the message currently being written.
  	struct write_message_t {
  		std::vector<uint64_t> words;
  		message_data_t per_message_data;
- 	}
+ 	};
 
  	// Read queue and support structures, for each thread
 	std::map<uint64_t, std::mutex> _read_lock;
 	std::map<uint64_t, std::queue<read_word_t>> _read_queue;
 	std::map<uint64_t, bool> _is_last_word;
-	std::map<uint64_t, message_data_t> _per_message_data;
+	std::map<uint64_t, message_data_t*> _per_message_data;
+	std::map<uint64_t, uint64_t> _num_read_messages;
 
 	// Write message, for each thread
 	std::map<uint64_t, write_message_t> _write_message;

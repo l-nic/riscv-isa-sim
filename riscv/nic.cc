@@ -14,6 +14,7 @@
 #include <map>
 #include <fstream>
 #include <queue>
+#include <sstream>
 
 #include "nic.h"
 
@@ -25,7 +26,7 @@ nic_t::nic_t() {
 	if (nic_config_data == nullptr) {
 		return;
 	}
-	_own_ip_address(nic_config_data);
+	_own_ip_address = nic_config_data;
 	populate_addr_maps();
 	string real_addr;
 	uint16_t real_port;
@@ -123,12 +124,12 @@ reg_t nic_t::load_uint64() {
 
 	// Update the per message metadata if necessary. (I.e. the new one is non-null.)
 	if (next_word.per_message_data) {
-		if (_per_message_data[port_id] && _per_per_message_data[port_id] != next_word.per_message_data) {
+		if (_per_message_data[port_id] && _per_message_data[port_id] != next_word.per_message_data) {
 			delete _per_message_data[port_id];
 		}
 		_per_message_data[port_id] = next_word.per_message_data;
 	}
-	return next_word;
+	return next_word.word;
 }
 
 // Mimics a read of lnic read queue ready status register
@@ -144,6 +145,9 @@ uint64_t nic_t::num_messages_ready() {
 	// Shouldn't be a problem to return this without a lock, since the queue is only
 	// being drained by one thread, so there's no risk of getting a true here and
 	// then having the queue actually be empty.
+	if (num_read_messages != 0) {
+		printf("Num read messages is %d\n", num_read_messages);
+	}
 	return num_read_messages;
 }
 
@@ -158,13 +162,15 @@ uint64_t nic_t::read_src_ip_lower() {
 	if (!_enable) {
 		return 0;
 	}
-	string ip_addr = _per_message_data[get_port_id()].src_ip_addr;
+	string ip_addr = _per_message_data[get_port_id()]->src_ip_addr;
+	cerr << "Getting src ip lower of " << ip_addr << endl;
 	vector<string> split_addr = split(ip_addr, ".");
 	uint64_t result = 0;
 	result |= stoi(split_addr[0]) << (8*3);
 	result |= stoi(split_addr[1]) << (8*2);
 	result |= stoi(split_addr[2]) << 8;
 	result |= stoi(split_addr[3]);
+	printf("Returning %#lx\n", result);
 	return result;
 }
 
@@ -176,7 +182,7 @@ uint64_t nic_t::read_src_port() {
 	if (!_enable) {
 		return 0;
 	}
-	return _per_message_data[get_port_id()].src_port_id;
+	return _per_message_data[get_port_id()]->src_port_id;
 }
 
 // *************************************************
@@ -196,14 +202,16 @@ void nic_t::set_dst_ip_lower(uint64_t lower_ip_bits) {
 	if (!_enable) {
 		return;
 	}
+	printf("Setting dst ip lower to %#lx\n", lower_ip_bits);
 	lower_ip_bits &= 0xFFFFFFFF;
 	stringstream ss;
 	uint8_t first = (lower_ip_bits >> (8*3)) & 0xFF;
 	uint8_t second = (lower_ip_bits >> (8*2)) & 0xFF;
 	uint8_t third = (lower_ip_bits >> 8) & 0xFF;
 	uint8_t fourth = lower_ip_bits & 0xFF;
-	ss << first << "." << second << "." << third << "." << fourth;
-	_write_message[get_port_id()].per_message_data.dst_ip_addr = ss.str();
+	string result = to_string(first) + "." + to_string(second) + "." + to_string(third) + "." + to_string(fourth);
+	cerr << "Setting dst addr to " << result << endl;
+	_write_message[get_port_id()].per_message_data.dst_ip_addr = result;
 }
 
 void nic_t::set_dst_ip_upper(uint64_t upper_ip_bits) {
@@ -222,18 +230,29 @@ void nic_t::write_message_end() {
 		return;
 	}
 	uint64_t port_id = get_port_id();
-	if (!_write_message[port_id].per_message_data) {
+	if (_write_message[port_id].per_message_data.dst_ip_addr.empty() || _write_message[port_id].per_message_data.dst_port_id == 0) {
+		// TODO: Check that the default port id in the static message data structure is actually 0.
 		return; // We need the per message data or we'll have no idea where to send this message
 	}
 
-	// Build our payload for sending
-	uint64_t datagram_len = (_write_message[port_id].words.size() / sizeof(uint64_t)) + sizeof(nic_t::header_data_t);
+	// Allocate a buffer for sending
+	uint64_t datagram_len = (_write_message[port_id].words.size() * sizeof(uint64_t)) + sizeof(uint16_t) + sizeof(nic_t::header_data_t);
 	uint8_t* datagram = new uint8_t[datagram_len];
-	nic_t::header_data_t* header_data = (nic_t::header_data_t*)datagram;
-	header_data->magic = LNIC_MAGIC;
+
+	// Fill in the reply udp port (used by the fake ip address translation)
+	string real_ip_addr;
+	uint16_t real_udp_port;
+	fake_to_real_addr(real_ip_addr, real_udp_port, _own_ip_address);
+	*(uint16_t*)datagram = htons(real_udp_port);
+
+	// Fill in the lnic header
+	nic_t::header_data_t* header_data = (nic_t::header_data_t*)(datagram + sizeof(uint16_t));
+	header_data->magic = LNIC_MAGIC; // TODO: These should be in network order, not host order
 	header_data->src_port_id = _write_message[port_id].per_message_data.src_port_id;
 	header_data->dst_port_id = _write_message[port_id].per_message_data.dst_port_id;
-	uint64_t* data_start = (uint64_t*)(datagram + sizeof(nic_t::header_data_t));
+	
+	// Fill in the message data
+	uint64_t* data_start = (uint64_t*)(datagram + sizeof(uint16_t) + sizeof(nic_t::header_data_t));
 	for (size_t i = 0; i < _write_message[port_id].words.size(); i++) {
 		data_start[i] = _write_message[port_id].words[i];
 	}
@@ -241,8 +260,7 @@ void nic_t::write_message_end() {
 
 	// Actually route the packet in the simulated system
 	string fake_ip_address = _write_message[port_id].per_message_data.dst_ip_addr;
-	string real_ip_addr;
-	uint16_t real_udp_port;
+	cerr << "Fake dest addr is " << fake_ip_address << endl;
 	fake_to_real_addr(real_ip_addr, real_udp_port, fake_ip_address);
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
@@ -269,7 +287,7 @@ void nic_t::write_message_end() {
 // ***********************************************************
 // Read processing backend and ip translation utility functions.
 
-void nic_t::handle_lnic_datagram(uint8_t* datagram, ssize_t datagram_len, string src_ip_address) {
+void nic_t::handle_lnic_datagram(uint8_t* datagram, size_t datagram_len, string src_ip_address) {
 	// We now have the raw data and the src ip address, same as we would
 	// after deciphering the outer layers of a packet in a hardware implementation.
 	// This implementation assumes that each packet contains either one full message
@@ -284,19 +302,21 @@ void nic_t::handle_lnic_datagram(uint8_t* datagram, ssize_t datagram_len, string
 	nic_t::header_data_t* lnic_header = (nic_t::header_data_t*)datagram;
 	uint32_t lnic_magic = lnic_header->magic;
 	if (lnic_magic != LNIC_MAGIC) {
+		printf("Lnic magic number not present, should be %#lx but is %#lx\n", LNIC_MAGIC, lnic_magic);
 		return; // Not an lnic packet, should never have been sent here
 	}
-	if (datagram_len - sizeof(nic_t::header_data_t) % sizeof(uint64_t) != 0) {
+	if ((datagram_len - sizeof(nic_t::header_data_t)) % sizeof(uint64_t) != 0) {
 		// All lnic packets should have word-aligned data
+		printf("Packets don't have word-aligned data\n");
 		return;
 	}
 	uint64_t* data_ptr = (uint64_t*)(datagram + sizeof(nic_t::header_data_t));
 	uint64_t word_len = (datagram_len - sizeof(nic_t::header_data_t)) / sizeof(uint64_t);
 	uint64_t port_id = lnic_header->dst_port_id;
-	nic_t::header_data_t* per_message_data = new nic_t::per_message_data;
+	nic_t::message_data_t* per_message_data = new nic_t::message_data_t;
 	per_message_data->dst_port_id = lnic_header->dst_port_id;
 	per_message_data->src_port_id = lnic_header->src_port_id;
-	per_message_data->src_ip_addr = src_ip_addr;
+	per_message_data->src_ip_addr = src_ip_address;
 	per_message_data->dst_ip_addr = _own_ip_address;
 
 	// Everything in this section deals with pushing the received data into the
@@ -311,6 +331,11 @@ void nic_t::handle_lnic_datagram(uint8_t* datagram, ssize_t datagram_len, string
 	}
 	_num_read_messages[port_id]++;
 	_read_lock[port_id].unlock();
+}
+
+void get_response_port(uint8_t* datagram, uint8_t*& lnic_datagram, uint16_t& response_port) {
+	response_port = ntohs(*(uint16_t*)datagram);
+	lnic_datagram = datagram + 2;
 }
 
 void nic_t::listen_for_datagrams() {
@@ -337,8 +362,14 @@ void nic_t::listen_for_datagrams() {
 				INET_ADDRSTRLEN + 1);
 		string ip_address(dst_cstring);
 		string fake_ip_address;
-		real_to_fake_addr(ip_address, port, fake_ip_address);
-		handle_lnic_datagram(datagram, bytes_received, fake_ip_address);
+		uint16_t response_port;
+		uint8_t* lnic_datagram;
+		get_response_port(datagram, lnic_datagram, response_port);
+		real_to_fake_addr(ip_address, response_port, fake_ip_address);
+		cerr << ip_address << "," << response_port << endl;
+		cerr << fake_ip_address << endl;
+		printf("Received a raw datagram of length %d with ip %s\n", bytes_received, fake_ip_address.c_str());
+		handle_lnic_datagram(lnic_datagram, bytes_received - 2, fake_ip_address);
 	}
 }
 

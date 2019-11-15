@@ -683,8 +683,30 @@ void processor_t::set_csr(int which, reg_t val)
     case CSR_VXRM:
       VU.vxrm = val;
       break;
+    case CSR_LOWNID:
+      nic->set_own_port_id(val);
+      break;
     case CSR_LREAD:
-      printf("Got lread csr read\n");
+    case CSR_LMSGSRDY:
+    case CSR_LRDEND:
+    case CSR_LRDSRCIPLO:
+    case CSR_LRDSRCIPHI:
+    case CSR_LRDSRCPRT:
+      break;
+    case CSR_LWRITE:
+      nic->store_uint64(val);
+      break;
+    case CSR_LWREND:
+      nic->write_message_end();
+      break;
+    case CSR_LWRDSTIPLO:
+      nic->set_dst_ip_lower(val);
+      break;
+    case CSR_LWRDSTIPHI:
+      nic->set_dst_ip_upper(val);
+      break;
+    case CSR_LWRDSTPRT:
+      nic->set_dst_port(val);
       break;
   }
 }
@@ -880,7 +902,25 @@ reg_t processor_t::get_csr(int which)
       if (!supports_extension('V'))
         break;
       return VU.vtype;
+    case CSR_LOWNID:
+      return nic->get_port_id();
     case CSR_LREAD:
+      return nic->load_uint64();
+    case CSR_LMSGSRDY:
+      return nic->num_messages_ready();
+    case CSR_LRDEND:
+      return nic->is_last_word_read();
+    case CSR_LRDSRCIPLO:
+      return nic->read_src_ip_lower();
+    case CSR_LRDSRCIPHI:
+      return nic->read_src_ip_upper();
+    case CSR_LRDSRCPRT:
+      return nic->read_src_port();
+    case CSR_LWRITE:
+    case CSR_LWREND:
+    case CSR_LWRDSTIPLO:
+    case CSR_LWRDSTIPHI:
+    case CSR_LWRDSTPRT:
       return 0;
   }
   throw trap_illegal_instruction(0);
