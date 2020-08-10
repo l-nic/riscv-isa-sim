@@ -30,6 +30,7 @@ processor_t::processor_t(const char* isa, const char* varch, simif_t* sim,
   parse_varch_string(varch);
   register_base_instructions();
   mmu = new mmu_t(sim, this);
+  nic = new nic_t();
 
   disassembler = new disassembler_t(max_xlen);
   if (ext)
@@ -51,6 +52,7 @@ processor_t::~processor_t()
 #endif
 
   delete mmu;
+  delete nic;
   delete disassembler;
 }
 
@@ -682,6 +684,12 @@ void processor_t::set_csr(int which, reg_t val)
     case CSR_VXRM:
       VU.vxrm = val;
       break;
+    case 0x50: // lread -- does nothing when written to
+    case 0x52: // lmsgsrdy -- does nothing when written to
+      break;
+    case 0x51: // lwrite -- send the value to the nic for writing
+      nic->write_uint64(val);
+      break;
   }
 }
 
@@ -876,6 +884,12 @@ reg_t processor_t::get_csr(int which)
       if (!supports_extension('V'))
         break;
       return VU.vtype;
+    case 0x51: // lwrite -- does nothing when read
+      break;
+    case 0x50: // lread -- receive the value from the nic for reading
+      return nic->read_uint64();
+    case 0x52: // lmsgsrdy -- get whether any messages are pending from the nic
+      return nic->num_messages_ready();
   }
   throw trap_illegal_instruction(0);
 }
