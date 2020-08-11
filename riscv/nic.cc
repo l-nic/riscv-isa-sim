@@ -115,10 +115,10 @@ void nic_t::write_uint64(reg_t data) {
 
 	if (_out_message_index >= _out_message->size) {
 		// Actually write out the message
-		for (int i = 0; i < _out_message->size; i++) {
-			uint8_t data = (uint8_t)_out_message->data[i];
-			printf("%d, %d\n", i, data);
-		}
+		// for (int i = 0; i < _out_message->size; i++) {
+		// 	uint8_t data = (uint8_t)_out_message->data[i];
+		// 	printf("%d, %d\n", i, data);
+		// }
 		ssize_t total_len = 0;
 		ssize_t actual_len = 0;
 		do {

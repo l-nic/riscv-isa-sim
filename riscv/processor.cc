@@ -688,7 +688,7 @@ void processor_t::set_csr(int which, reg_t val)
     case 0x52: // lmsgsrdy -- does nothing when written to
       break;
     case 0x51: // lwrite -- send the value to the nic for writing
-      printf("Writing to nic\n");
+      // printf("Writing to nic\n");
       nic->write_uint64(val);
       break;
   }
