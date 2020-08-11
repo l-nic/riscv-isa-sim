@@ -115,20 +115,20 @@ void nic_t::write_uint64(reg_t data) {
 
 	if (_out_message_index >= _out_message->size) {
 		// Actually write out the message
-		// for (int i = 0; i < _out_message->size; i++) {
-		// 	uint8_t data = (uint8_t)_out_message->data[i];
-		// 	printf("%d\n", data);
-		// }
-		// ssize_t total_len = 0;
-		// ssize_t actual_len = 0;
-		// do {
-		// 	actual_len = write(_switch_fd, _out_message->data + total_len, _out_message->size - total_len);
-		// 	total_len += actual_len;
-		// 	if (actual_len <= 0) {
-		// 		printf("Send error, exiting\n");
-		// 		exit(-1);
-		// 	}
-		// } while (total_len < _out_message->size);
+		for (int i = 0; i < _out_message->size; i++) {
+			uint8_t data = (uint8_t)_out_message->data[i];
+			printf("%d, %d\n", i, data);
+		}
+		ssize_t total_len = 0;
+		ssize_t actual_len = 0;
+		do {
+			actual_len = write(_switch_fd, _out_message->data + total_len, _out_message->size - total_len);
+			total_len += actual_len;
+			if (actual_len <= 0) {
+				printf("Send error, exiting\n");
+				exit(-1);
+			}
+		} while (total_len < _out_message->size);
 		_out_message_index = 0;
 		delete [] _out_message->data;
 		delete _out_message;
