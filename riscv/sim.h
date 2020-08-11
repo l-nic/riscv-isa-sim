@@ -25,7 +25,8 @@ public:
         reg_t start_pc, std::vector<std::pair<reg_t, mem_t*>> mems,
         std::vector<std::pair<reg_t, abstract_device_t*>> plugin_devices,
         const std::vector<std::string>& args, const std::vector<int> hartids,
-        const debug_module_config_t &dm_config);
+        const debug_module_config_t &dm_config,
+        struct nic_config_t* nic_config=nullptr);
   ~sim_t();
 
   // run the simulation to completion

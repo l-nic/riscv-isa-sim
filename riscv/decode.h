@@ -30,6 +30,13 @@ typedef __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 #endif
 
+struct nic_config_t {
+  uint64_t nic_mac_addr;
+  uint32_t nic_ip_addr;
+  uint64_t switch_mac_addr;
+  uint32_t treelet_id;
+};
+
 const int NXPR = 32;
 const int NFPR = 32;
 const int NVPR = 32;

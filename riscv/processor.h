@@ -294,7 +294,7 @@ class processor_t : public abstract_device_t
 {
 public:
   processor_t(const char* isa, const char* varch, simif_t* sim, uint32_t id,
-              bool halt_on_reset=false);
+              bool halt_on_reset=false, struct nic_config_t* nic_config=nullptr);
   ~processor_t();
 
   void set_debug(bool value);

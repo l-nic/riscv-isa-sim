@@ -29,7 +29,8 @@ sim_t::sim_t(const char* isa, const char* varch, size_t nprocs, bool halted,
              std::vector<std::pair<reg_t, abstract_device_t*>> plugin_devices,
              const std::vector<std::string>& args,
              std::vector<int> const hartids,
-             const debug_module_config_t &dm_config)
+             const debug_module_config_t &dm_config,
+             struct nic_config_t* nic_config)
   : htif_t(args), mems(mems), plugin_devices(plugin_devices),
     procs(std::max(nprocs, size_t(1))), start_pc(start_pc), current_step(0),
     current_proc(0), debug(false), histogram_enabled(false),
@@ -50,7 +51,7 @@ sim_t::sim_t(const char* isa, const char* varch, size_t nprocs, bool halted,
 
   if (hartids.size() == 0) {
     for (size_t i = 0; i < procs.size(); i++) {
-      procs[i] = new processor_t(isa, varch, this, i, halted);
+      procs[i] = new processor_t(isa, varch, this, i, halted, nic_config);
     }
   }
   else {
