@@ -64,6 +64,10 @@ reg_t nic_t::read_uint64() {
 	    	_message_queue_lock.unlock();
 	    	exit(-1);
 	    }
+	    // If there is an existing message that was just finished, make sure to clean it up first
+	    if (_received_first_message) {
+	    	delete [] _current_message.data;
+	    }
 	    _current_message = _messages.front();
 	    _messages.pop();
 	    _message_queue_lock.unlock();
@@ -83,6 +87,53 @@ reg_t nic_t::read_uint64() {
 }
 
 void nic_t::write_uint64(reg_t data) {
+	if (_out_message == nullptr) {
+		_out_message = new struct nic_t::message_t;
+		_out_message->size = sizeof(uint64_t);
+		_out_message->data = new char[sizeof(uint32_t)*2]; // TODO: The actual header will probably be easier to deal with than this one
+		memcpy(_out_message->data, &data, sizeof(uint64_t));
+		_out_message_index = 0;
+		//printf("started message\n");
+	} else if (_out_message->size == sizeof(uint64_t)) {
+		uint32_t* data_parsed = (uint32_t*)&data;
+		_out_message->size = data_parsed[0] + 3*sizeof(uint32_t);
+		char temp_header[sizeof(uint32_t)*2];
+		memcpy(temp_header, _out_message->data, sizeof(uint32_t)*2);
+		delete [] _out_message->data;
+		uint32_t buf_size = _out_message->size;
+		buf_size += sizeof(uint64_t) - (buf_size % sizeof(uint64_t)); // Round the buffer size up to a multiple of the word size.
+		_out_message->data = new char[buf_size];
+		memcpy(_out_message->data, temp_header, sizeof(uint32_t)*2);
+		memcpy(_out_message->data + sizeof(uint64_t), &data, sizeof(uint64_t));
+		_out_message_index = 2*sizeof(uint64_t);
+		//printf("init message index is %d\n", _out_message_index);
+	} else {
+		memcpy(_out_message->data + _out_message_index, &data, sizeof(uint64_t));
+		_out_message_index += sizeof(uint64_t);
+		//printf("in message index is %d\n", _out_message_index);
+	}
+
+	if (_out_message_index >= _out_message->size) {
+		// Actually write out the message
+		// for (int i = 0; i < _out_message->size; i++) {
+		// 	uint8_t data = (uint8_t)_out_message->data[i];
+		// 	printf("%d\n", data);
+		// }
+		// ssize_t total_len = 0;
+		// ssize_t actual_len = 0;
+		// do {
+		// 	actual_len = write(_switch_fd, _out_message->data + total_len, _out_message->size - total_len);
+		// 	total_len += actual_len;
+		// 	if (actual_len <= 0) {
+		// 		printf("Send error, exiting\n");
+		// 		exit(-1);
+		// 	}
+		// } while (total_len < _out_message->size);
+		_out_message_index = 0;
+		delete [] _out_message->data;
+		delete _out_message;
+		_out_message = nullptr;
+	}
 
 }
 

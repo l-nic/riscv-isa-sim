@@ -22,14 +22,16 @@ class nic_t {
  	};
  	int start_client_socket(const char* ip_address, uint16_t port);
  	int _switch_fd = -1;
- 	uint32_t _treelet_id;
+ 	uint32_t _treelet_id = -1;
  	std::thread _receive_thread;
  	void receive_data();
  	std::queue<struct message_t> _messages;
  	std::mutex _message_queue_lock;
  	struct message_t _current_message;
- 	uint32_t _current_message_index;
- 	bool _received_first_message;
+ 	uint32_t _current_message_index = 0;
+ 	bool _received_first_message = false;
+ 	struct message_t* _out_message = nullptr;
+ 	uint32_t _out_message_index = 0;
 };
 
 

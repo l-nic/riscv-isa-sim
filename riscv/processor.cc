@@ -688,6 +688,7 @@ void processor_t::set_csr(int which, reg_t val)
     case 0x52: // lmsgsrdy -- does nothing when written to
       break;
     case 0x51: // lwrite -- send the value to the nic for writing
+      printf("Writing to nic\n");
       nic->write_uint64(val);
       break;
   }
@@ -885,7 +886,7 @@ reg_t processor_t::get_csr(int which)
         break;
       return VU.vtype;
     case 0x51: // lwrite -- does nothing when read
-      break;
+      return 0;
     case 0x50: // lread -- receive the value from the nic for reading
       return nic->read_uint64();
     case 0x52: // lmsgsrdy -- get whether any messages are pending from the nic
