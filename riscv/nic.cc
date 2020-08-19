@@ -11,7 +11,7 @@
 #include "nic.h"
 
 #define SERVER_IP_ADDR "127.0.0.1"
-#define SERVER_PORT 5000
+#define SERVER_PORT 5001
 
 using namespace std;
 
@@ -20,12 +20,16 @@ nic_t::nic_t(struct nic_config_t* nic_config) {
 		printf("Nic configuration is null\n");
 		exit(-1);
 	}
-	if (nic_config->treelet_id == -1) {
-		printf("Treelet id is not set\n");
+	// if (nic_config->treelet_id == -1) {
+	// 	printf("Treelet id is not set\n");
+	// 	return;
+	// 	//exit(-1);
+	// }
+	if (nic_config->nic_ip_addr == -1) {
+		printf("Nic ip addr is not set\n");
 		return;
-		//exit(-1);
 	}
-	_treelet_id = nic_config->treelet_id;
+	_nic_ip_addr = nic_config->nic_ip_addr;
 	// if (nic_config_data == nullptr) {
 	// 	printf("No nic configuration file specified\n");
 	// 	exit(-1);
@@ -90,36 +94,19 @@ reg_t nic_t::read_uint64() {
 void nic_t::write_uint64(reg_t data) {
 	if (_out_message == nullptr) {
 		_out_message = new struct nic_t::message_t;
-		_out_message->size = sizeof(uint64_t);
-		_out_message->data = new char[sizeof(uint32_t)*2]; // TODO: The actual header will probably be easier to deal with than this one
+		uint64_t msg_len = data & 0xffff;
+		_out_message->size = sizeof(uint64_t) + msg_len;
+		_out_message->data = new char[_out_message->size];
 		memcpy(_out_message->data, &data, sizeof(uint64_t));
-		_out_message_index = 0;
+		_out_message_index = sizeof(uint64_t);
 		//printf("started message\n");
-	} else if (_out_message->size == sizeof(uint64_t)) {
-		uint32_t* data_parsed = (uint32_t*)&data;
-		_out_message->size = data_parsed[0] + 3*sizeof(uint32_t);
-		char temp_header[sizeof(uint32_t)*2];
-		memcpy(temp_header, _out_message->data, sizeof(uint32_t)*2);
-		delete [] _out_message->data;
-		uint32_t buf_size = _out_message->size;
-		buf_size += sizeof(uint64_t) - (buf_size % sizeof(uint64_t)); // Round the buffer size up to a multiple of the word size.
-		_out_message->data = new char[buf_size];
-		memcpy(_out_message->data, temp_header, sizeof(uint32_t)*2);
-		memcpy(_out_message->data + sizeof(uint64_t), &data, sizeof(uint64_t));
-		_out_message_index = 2*sizeof(uint64_t);
-		//printf("init message index is %d\n", _out_message_index);
 	} else {
 		memcpy(_out_message->data + _out_message_index, &data, sizeof(uint64_t));
 		_out_message_index += sizeof(uint64_t);
-		//printf("in message index is %d\n", _out_message_index);
 	}
 
 	if (_out_message_index >= _out_message->size) {
 		// Actually write out the message
-		// for (int i = 0; i < _out_message->size; i++) {
-		// 	uint8_t data = (uint8_t)_out_message->data[i];
-		// 	printf("%d, %d\n", i, data);
-		// }
 		ssize_t total_len = 0;
 		ssize_t actual_len = 0;
 		do {
@@ -151,36 +138,30 @@ uint64_t nic_t::num_messages_ready() {
 
 void nic_t::receive_data() {
 	while (true) {
-		uint32_t header_buf[2];
+		uint64_t header;
 		ssize_t total_len = 0;
 		ssize_t actual_len = 0;
 		do {
-			actual_len = read(_switch_fd, (char*)&header_buf + total_len, 2*sizeof(uint32_t) - total_len);
+			actual_len = read(_switch_fd, (char*)&header + total_len, sizeof(uint64_t) - total_len);
 			total_len += actual_len;
 			if (actual_len <= 0) {
 				printf("Receive error, exiting\n");
 				exit(-1);
 			}
 		} while (total_len < 2*sizeof(uint32_t));
-		printf("message id is %d and size is %d\n", header_buf[0], header_buf[1]);
-
-		uint32_t buf_size = header_buf[1] + 2*sizeof(uint32_t);
-		buf_size += sizeof(uint64_t) - (buf_size % sizeof(uint64_t)); // Round up to 64-bit words
+		uint64_t msg_len = header & 0xffff;
+		uint32_t buf_size = msg_len + sizeof(uint64_t);
 		char* buffer = new char[buf_size];
-		memcpy(buffer, header_buf, 2*sizeof(uint32_t));
+		memcpy(buffer, &header, sizeof(uint64_t));
 		total_len = 0;
 		do {
-			actual_len = read(_switch_fd, buffer + 2*sizeof(uint32_t) + total_len, header_buf[1] - total_len);
+			actual_len = read(_switch_fd, buffer + sizeof(uint64_t) + total_len, msg_len - total_len);
 			total_len += actual_len;
 			if (actual_len <= 0) {
 				printf("Receive error, exiting\n");
 				exit(-1);
 			}
-		} while (total_len < header_buf[1]);
-		if (header_buf[1] + 2*sizeof(uint32_t) < buf_size) {
-			// Pad with zeros if needed
-			memset(buffer + 2*sizeof(uint32_t) + header_buf[1], 0, buf_size - header_buf[1] - 2*sizeof(uint32_t));
-		}
+		} while (total_len < msg_len);
 		printf("received full message\n");
 
 		_message_queue_lock.lock();
@@ -208,7 +189,7 @@ int nic_t::start_client_socket(const char* ip_address, uint16_t port) {
     if (connect_retval < 0) {
         return -1;
     }
-    ssize_t written_len = write(sockfd, &_treelet_id, sizeof(uint32_t));
+    ssize_t written_len = write(sockfd, &_nic_ip_addr, sizeof(uint32_t));
     if (written_len <= 0) {
         return -1;
     }

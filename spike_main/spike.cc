@@ -100,6 +100,47 @@ static std::vector<std::pair<reg_t, mem_t*>> make_mems(const char* arg)
   return res;
 }
 
+int inet_pton4 (const char *src, const char *end, unsigned char *dst)
+{
+  int saw_digit, octets, ch;
+  unsigned char tmp[4], *tp;
+  saw_digit = 0;
+  octets = 0;
+  *(tp = tmp) = 0;
+  while (src < end)
+    {
+      ch = *src++;
+      if (ch >= '0' && ch <= '9')
+        {
+          unsigned int new_val = *tp * 10 + (ch - '0');
+          if (saw_digit && *tp == 0)
+            return 0;
+          if (new_val > 255)
+            return 0;
+          *tp = new_val;
+          if (! saw_digit)
+            {
+              if (++octets > 4)
+                return 0;
+              saw_digit = 1;
+            }
+        }
+      else if (ch == '.' && saw_digit)
+        {
+          if (octets == 4)
+            return 0;
+          *++tp = 0;
+          saw_digit = 0;
+        }
+      else
+        return 0;
+    }
+  if (octets < 4)
+    return 0;
+  memcpy (dst, tmp, 4);
+  return 1;
+}
+
 int main(int argc, char** argv)
 {
   bool debug = false;
@@ -241,10 +282,17 @@ int main(int argc, char** argv)
 
   nic_config_t nic_config;
   nic_config.treelet_id = -1;
+  nic_config.nic_ip_addr = -1;
   parser.option(0, "nic_mac_addr", 1, [&](const char* s) { exit(-1);}); // not supported yet
-  parser.option(0, "nic_ip_addr", 1, [&](const char* s) { exit(-1);}); // not supported yet
+  parser.option(0, "nic_ip_addr", 1, [&](const char* s) {
+      char* nic_ip_str = (char*)s;
+      uint32_t nic_ip_addr_lendian = 0;
+      int retval = inet_pton4(nic_ip_str, nic_ip_str + strlen(nic_ip_str), (unsigned char*)&nic_ip_addr_lendian);
+      uint32_t nic_ip_addr = __builtin_bswap32(nic_ip_addr_lendian);
+      nic_config.nic_ip_addr = nic_ip_addr;
+  });
   parser.option(0, "switch_mac_addr", 1, [&](const char* s) { exit(-1);}); // not supported yet
-  parser.option(0, "treelet_id", 1, [&](const char* s) { nic_config.treelet_id = atoi(s);}); // not supported yet
+  parser.option(0, "treelet_id", 1, [&](const char* s) { nic_config.treelet_id = atoi(s);});
 
 
   auto argv1 = parser.parse(argv);
