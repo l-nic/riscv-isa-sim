@@ -22,7 +22,8 @@ nic_t::nic_t(struct nic_config_t* nic_config) {
 	}
 	if (nic_config->treelet_id == -1) {
 		printf("Treelet id is not set\n");
-		exit(-1);
+		return;
+		//exit(-1);
 	}
 	_treelet_id = nic_config->treelet_id;
 	// if (nic_config_data == nullptr) {
