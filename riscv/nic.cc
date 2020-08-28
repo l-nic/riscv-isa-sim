@@ -93,8 +93,10 @@ reg_t nic_t::read_uint64() {
 
 void nic_t::write_uint64(reg_t data) {
 	if (_out_message == nullptr) {
-		_out_message = new struct nic_t::message_t;
+		_out_message = new nic_t::message_t;
+		//printf("Received data %#lx\n", data);
 		uint64_t msg_len = data & 0xffff;
+		//printf("Creating message with size %d\n", sizeof(uint64_t) + msg_len);
 		_out_message->size = sizeof(uint64_t) + msg_len;
 		_out_message->data = new char[_out_message->size];
 		memcpy(_out_message->data, &data, sizeof(uint64_t));
