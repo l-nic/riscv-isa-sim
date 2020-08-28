@@ -78,7 +78,7 @@ reg_t nic_t::read_uint64() {
 	    _message_queue_lock.unlock();
 	    _received_first_message = true;
 	    _current_message_index = 0;
-	    printf("initialized current message with size %d\n", _current_message.size);
+	    // printf("initialized current message with size %d\n", _current_message.size);
 	}
 	// Current message should now be set up
 	// for (int i = 0; i < _current_message.size / sizeof(uint32_t); i++) {
@@ -162,12 +162,12 @@ void nic_t::receive_data() {
 				exit(-1);
 			}
 		} while (total_len < msg_len);
-		printf("received full message\n");
+		//printf("received full message\n");
 
 		_message_queue_lock.lock();
 		_messages.push({buffer, buf_size});
 		_message_queue_lock.unlock();
-		printf("pushed message into queue\n");
+		//printf("pushed message into queue\n");
 	}
 }
 
