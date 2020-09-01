@@ -33,6 +33,7 @@ class nic_t {
  	bool _received_first_message = false;
  	struct message_t* _out_message = nullptr;
  	uint32_t _out_message_index = 0;
+	bool _ran_init = false;
 };
 
 

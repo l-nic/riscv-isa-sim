@@ -18,7 +18,8 @@ using namespace std;
 nic_t::nic_t(struct nic_config_t* nic_config) {
 	if (nic_config == nullptr) {
 		printf("Nic configuration is null\n");
-		exit(-1);
+		return;
+		//exit(-1);
 	}
 	// if (nic_config->treelet_id == -1) {
 	// 	printf("Treelet id is not set\n");
@@ -53,14 +54,17 @@ nic_t::nic_t(struct nic_config_t* nic_config) {
     	exit(-1);
     }
     _receive_thread = move(thread([this]() {this->receive_data();}));
+	_ran_init = true;
     printf("Spike nic initialized\n");
 }
 
 nic_t::~nic_t() {
+	if (!_ran_init) return;
     _receive_thread.join();
 }
 
 reg_t nic_t::read_uint64() {
+    if (!_ran_init) return 0;
 	// Mimics the actual nanoPU and throws an error if attempting to read with no messages present in the queue
 	if (!_received_first_message || _current_message_index >= _current_message.size) {
 	    _message_queue_lock.lock();
@@ -92,6 +96,7 @@ reg_t nic_t::read_uint64() {
 }
 
 void nic_t::write_uint64(reg_t data) {
+	if (!_ran_init) return;
 	if (_out_message == nullptr) {
 		_out_message = new nic_t::message_t;
 		//printf("Received data %#lx\n", data);
@@ -128,6 +133,7 @@ void nic_t::write_uint64(reg_t data) {
 }
 
 uint64_t nic_t::num_messages_ready() {
+	if (!_ran_init) return 0;
 	// Mimics the actual nanoPU and only returns 0 or 1
 	_message_queue_lock.lock();
 	uint64_t queue_size_at_check = _messages.size();
