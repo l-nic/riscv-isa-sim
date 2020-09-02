@@ -157,9 +157,12 @@ private:
 // helpful macros, etc
 #define MMU (*p->get_mmu())
 #define STATE (*p->get_state())
+#define NIC (*p->get_nic())
 #define P (*p)
 #define FLEN (p->get_flen())
-#define READ_REG(reg) STATE.XPR[reg]
+#define READ_REG(reg) ({ \
+    reg == 30 ? NIC.read_uint64() : STATE.XPR[reg]; \
+})
 #define READ_FREG(reg) STATE.FPR[reg]
 #define RD READ_REG(insn.rd())
 #define RS1 READ_REG(insn.rs1())
@@ -168,13 +171,23 @@ private:
 #define WRITE_RD(value) WRITE_REG(insn.rd(), value)
 
 #ifndef RISCV_ENABLE_COMMITLOG
-# define WRITE_REG(reg, value) STATE.XPR.write(reg, value)
+# define WRITE_REG(reg, value) ({ \
+    if (reg == 31) { \
+        NIC.write_uint64(value); \
+    } else { \
+        STATE.XPR.write(reg, value); \
+    } \
+})
 # define WRITE_FREG(reg, value) DO_WRITE_FREG(reg, freg(value))
 #else
 # define WRITE_REG(reg, value) ({ \
-    reg_t wdata = (value); /* value may have side effects */ \
-    STATE.log_reg_write = (commit_log_reg_t){(reg) << 1, {wdata, 0}}; \
-    STATE.XPR.write(reg, wdata); \
+    if (reg == 31) { \
+        NIC.write_uint64(value); \
+    } else { \
+        reg_t wdata = (value); /* value may have side effects */ \
+        STATE.log_reg_write = (commit_log_reg_t){(reg) << 1, {wdata, 0}}; \
+        STATE.XPR.write(reg, wdata); \
+    } \
   })
 # define WRITE_FREG(reg, value) ({ \
     freg_t wdata = freg(value); /* value may have side effects */ \
