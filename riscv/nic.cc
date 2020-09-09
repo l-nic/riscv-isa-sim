@@ -104,7 +104,12 @@ void nic_t::write_uint64(reg_t data) {
 		//printf("Creating message with size %d\n", sizeof(uint64_t) + msg_len);
 		_out_message->size = sizeof(uint64_t) + msg_len;
 		_out_message->data = new char[_out_message->size];
-		memcpy(_out_message->data, &data, sizeof(uint64_t));
+		uint64_t header = data;
+		header &= 0xffffffff0000ffff;
+		uint64_t adjust_own_ip = (_nic_ip_addr & 0xffff) << 16;
+		header |= adjust_own_ip;
+		//printf("adjusted header is %#lx\n", header);
+		memcpy(_out_message->data, &header, sizeof(uint64_t));
 		_out_message_index = sizeof(uint64_t);
 		//printf("started message\n");
 	} else {
